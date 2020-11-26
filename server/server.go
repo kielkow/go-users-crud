@@ -155,3 +155,53 @@ func SearchUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// UpdateUser func
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	ID, error := strconv.ParseUint(params["id"], 10, 32)
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to covert ID to integer"))
+		return
+	}
+
+	requestBody, error := ioutil.ReadAll(r.Body)
+	if error != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("Fail to read request body"))
+		return
+	}
+
+	var user user
+	if error := json.Unmarshal(requestBody, &user); error != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("Fail to convert request body to user struct"))
+		return
+	}
+
+	db, error := database.Connect()
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to connect on database"))
+		return
+	}
+	defer db.Close()
+
+	statement, error := db.Prepare("UPDATE users SET name = ?, email = ? WHERE id = ?")
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to prepare query statement"))
+		return
+	}
+	defer statement.Close()
+
+	if _, error := statement.Exec(user.Name, user.Email, ID); error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to update user"))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
