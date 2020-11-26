@@ -6,6 +6,9 @@ import (
 	"go-users-crud/database"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 type user struct {
@@ -105,5 +108,50 @@ func SearchUsers(w http.ResponseWriter, r *http.Request) {
 
 // SearchUser func
 func SearchUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
 
+	ID, error := strconv.ParseUint(params["id"], 10, 32)
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to covert ID to integer"))
+		return
+	}
+
+	db, error := database.Connect()
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to connect on database"))
+		return
+	}
+	defer db.Close()
+
+	line, error := db.Query("SELECT * FROM users WHERE id = ?", ID)
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to search user on database"))
+		return
+	}
+	defer line.Close()
+
+	var user user
+	if line.Next() {
+		if error := line.Scan(&user.ID, &user.Name, &user.Email); error != nil {
+			w.WriteHeader(500)
+			w.Write([]byte("Fail to scan user from database"))
+			return
+		}
+	}
+
+	if user.ID == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("User not found"))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if error := json.NewEncoder(w).Encode(user); error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to convert user to JSON"))
+		return
+	}
 }
