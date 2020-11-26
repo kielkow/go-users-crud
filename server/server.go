@@ -205,3 +205,39 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// DeleteUser func
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	ID, error := strconv.ParseUint(params["id"], 10, 32)
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to covert ID to integer"))
+		return
+	}
+
+	db, error := database.Connect()
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to connect on database"))
+		return
+	}
+	defer db.Close()
+
+	statement, error := db.Prepare("DELETE FROM users WHERE id = ?")
+	if error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to prepare query statement"))
+		return
+	}
+	defer statement.Close()
+
+	if _, error := statement.Exec(ID); error != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Fail to delete user"))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
